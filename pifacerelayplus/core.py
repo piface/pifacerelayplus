@@ -11,6 +11,11 @@ DEFAULT_SPI_CHIP_SELECT = 0
 # INPUT_PORT = pifacecommon.core.GPIOB
 INPUT_PULLUP = pifacecommon.core.GPPUB
 
+MOTOR_FORWARD_BITS = (0, 0)  # (pin_num1, pin_num2)
+MOTOR_BACK_BITS = (0, 1)
+MOTOR_STOP_BITS = (1, 0)
+MOTOR_COAST_BITS = (1, 1)
+
 
 class InitError(Exception):
     pass
@@ -29,32 +34,72 @@ class Relay(pifacecommon.core.DigitalOutputItem):
             raise pifacecommon.core.RangeError(
                 "Specified relay index (%d) out of range." % relay_num)
         else:
-            super(Relay, self).__init__(
-                relay_num, pifacecommon.core.GPIOA, board_num)
+            super(Relay, self).__init__(relay_num, pifacecommon.core.GPIOA,
+                                        board_num, toggle_mask=0)
+            # Toggle mask is supposed to be 1 according to schematic
+
+
+class Motor(object):
+    """A motor attached to a PiFace Relay Plus."""
+    def __init__(self, pin_num1, pin_num2, port, board_num=0, toggle_mask=0):
+        self.pin_num1 = pin_num1
+        self.pin_num2 = pin_num2
+        self.port = port
+        self.board_num = board_num
+        self.toggle_mask = toggle_mask
+
+    @property
+    def handler(self):
+        """The module that handles this port (can be useful for
+        emulator/testing).
+        """
+        return sys.modules[__name__]
+
+    def forward(self):
+        """Sets the motor so that it is moving forward."""
+        self.set_pins(MOTOR_FORWARD_BITS[0], MOTOR_FORWARD_BITS[1])
+
+    def back(self):
+        """Sets the motor so that it is moving backwards."""
+        self.set_pins(MOTOR_BACK_BITS[0], MOTOR_BACK_BITS[1])
+
+    def stop(self):
+        """Stop the motor."""
+        self.set_pins(MOTOR_STOP_BITS[0], MOTOR_STOP_BITS[1])
+
+    def coast(self):
+        """Sets the motor so that it is coasting."""
+        self.set_pins(MOTOR_COAST_BITS[0], MOTOR_COAST_BITS[1])
+
+    def set_pins(self, pin1, pin2):
+        port_value = self.handler.read(self.port, self.board_num)
+        # clear the bits owned by this motor
+        mask = 0xFF ^ (0 << self.pin_num1) ^ (0 << self.pin_num2)
+        port_value &= mask
+        # set the bits for this motor
+        port_value ^= \
+            ((self.toggle_mask ^ pin1) << self.pin_num1) ^ \
+            ((self.toggle_mask ^ pin2) << self.pin_num2)
+        self.handler.write(port_value, self.port, self.board_num)
 
 
 class PiFaceRelayPlus(object):
     """A PiFace Relay Plus board.
 
     :attribute: board_num -- The board number.
-    :attribute: input_port -- See :class:`pifacecommon.core.DigitalInputPort`.
-    :attribute: output_port -- See
-        :class:`pifacecommon.core.DigitalOutputPort`.
+    :attribute: input_port1 -- See :class:`pifacecommon.core.DigitalInputPort`.
     :attribute: input_pins -- list containing
         :class:`pifacecommon.core.DigitalInputPin`.
-    :attribute: output_pins -- list containing
-        :class:`pifacecommon.core.DigitalOutputPin`.
-    :attribute: leds -- list containing :class:`LED`.
     :attribute: relays -- list containing :class:`Relay`.
-    :attribute: switches -- list containing :class:`Switch`.
+    :attribute: motors -- list containing :class:`Motor`.
 
     Example:
 
-    >>> pfd = pifacerelayplus.PiFaceRelayPlus()
-    >>> pfd.input_port.value
+    >>> prp = pifacerelayplus.PiFaceRelayPlus()
+    >>> prp.input_port.value
     0
-    >>> pfd.output_port.value = 0xAA
-    >>> pfd.leds[5].turn_on()
+    >>> prp.relays[3].turn_on()
+    >>> prp.motor[2].forward()
     """
     def __init__(self, board_num=0):
         self.board_num = board_num
@@ -62,21 +107,50 @@ class PiFaceRelayPlus(object):
         self.input_port = pifacecommon.core.DigitalInputPort(
             port=pifacecommon.core.GPIOB,
             board_num=self.board_num,
-            toggle=0x00,
-            mask=0x0F)
+            bit_mask=0x0F,
+            toggle_mask=0x00)
         self.input_pins = [
             pifacecommon.core.DigitalInputItem(
                 pin_num=i,
                 port=pifacecommon.core.GPIOB,
                 board_num=self.board_num,
-                toggle=0)
+                toggle_mask=0)
             for i in range(4, 8)
         ]
 
-        self.relays = [Relay(i, board_num) for i in range(4)]
+        #self.relays = [Relay(i, board_num) for i in range(4)]
 
-        self.relays_plus = [Relay(i, board_num) for i in range(4, 8)]
-        self.motor_plus = [Relay(i, board_num) for i in range(4, 8)]
+        #self.relays_plus = [Relay(i, board_num) for i in range(4, 8)]
+        # don't seperate (let the user access relay 5 even if motor is on)
+
+        # make these dependant on init
+        # init(motors=True)
+        # init(relays=True)
+        # init(some_other_addon=True)
+        self.relays = [Relay(i, board_num) for i in range(8)]
+
+        self.motors = [
+            Motor(pin_num1=4,
+                  pin_num2=5,
+                  port=pifacecommon.core.GPIOA,
+                  board_num=self.board_num,
+                  toggle_mask=1),
+            Motor(pin_num1=6,
+                  pin_num2=7,
+                  port=pifacecommon.core.GPIOA,
+                  board_num=self.board_num,
+                  toggle_mask=1),
+            Motor(pin_num1=3,
+                  pin_num2=2,
+                  port=pifacecommon.core.GPIOB,
+                  board_num=self.board_num,
+                  toggle_mask=0),
+            Motor(pin_num1=1,
+                  pin_num2=0,
+                  port=pifacecommon.core.GPIOB,
+                  board_num=self.board_num,
+                  toggle_mask=0)
+        ]
 
 
 class InputEventListener(pifacecommon.interrupts.PortEventListener):
@@ -122,17 +196,17 @@ def init(init_board=True,
             pifacecommon.core.INTPOL_LOW
         )
 
-        pfd_detected = False
+        pfrp_detected = False
 
         for board_index in range(pifacecommon.core.MAX_BOARDS):
             pifacecommon.core.write(
                 ioconfig, pifacecommon.core.IOCON, board_index)
 
-            if not pfd_detected:
+            if not pfrp_detected:
                 pfioconf = pifacecommon.core.read(
                     pifacecommon.core.IOCON, board_index)
                 if pfioconf == ioconfig:
-                    pfd_detected = True
+                    pfrp_detected = True
 
             # clear port A and set it as an output
             pifacecommon.core.write(0, pifacecommon.core.GPIOA, board_index)
@@ -143,94 +217,92 @@ def init(init_board=True,
                 0x0f, pifacecommon.core.IODIRB, board_index)
 
             ################# !!!!!!!!!!!!!!!!!!!!!! #################
-            # turn pullups on
-            # ask Andrew about this
+            # turn pullups on, ask Andrew about this
             pifacecommon.core.write(0xff, pifacecommon.core.GPPUB, board_index)
             ################# !!!!!!!!!!!!!!!!!!!!!! #################
 
-        if not pfd_detected:
+        if not pfrp_detected:
             raise NoPiFaceRelayPlusDetectedError(
-                "No PiFace Digital board detected!"
-            )
+                "No PiFace Relay Plus board detected!")
         else:
-            ################# !!!!!!!!!!!!!!!!!!!!!! #################
-            # need to edit this later to only turn on first nibble of interrupt
-            pifacecommon.interrupts.enable_interrupts(INPUT_PORT)
-            ################# !!!!!!!!!!!!!!!!!!!!!! #################
+            pifacecommon.interrupts.enable_interrupts(
+                port=pifacecommon.core.GPIOB, pin_map=0x0f)
 
 
 def deinit():
-    """Closes the spidev file descriptor"""
-    pifacecommon.interrupts.disable_interrupts(INPUT_PORT)
+    """Deinitialises all PiFace Relay Plus boards."""
+    pifacecommon.interrupts.disable_interrupts(pifacecommon.core.GPIOB)
     pifacecommon.core.deinit()
 
 
 # wrapper functions for backwards compatibility
-def digital_read(pin_num, board_num=0):
-    """Returns the value of the input pin specified.
+# def digital_read(pin_num, board_num=0):
+#     """Returns the value of the input pin specified.
 
-    .. note:: This function is for familiarality with users of other types of
-       IO board. Consider using :func:`pifacecommon.core.read_bit` instead.
+#     .. note:: This function is for familiarality with users of other types of
+#        IO board. Consider using :func:`pifacecommon.core.read_bit` instead.
 
-       >>> pifacecommon.core.read_bit(pin_num, INPUT_PORT, board_num)
+#        >>> pifacecommon.core.read_bit(pin_num, INPUT_PORT, board_num)
 
-    :param pin_num: The pin number to read.
-    :type pin_num: int
-    :param board_num: The board to read from (default: 0)
-    :type board_num: int
-    :returns: int -- value of the pin
-    """
-    return pifacecommon.core.read_bit(pin_num, INPUT_PORT, board_num) ^ 1
-
-
-def digital_write(pin_num, value, board_num=0):
-    """Writes the value to the input pin specified.
-
-    .. note:: This function is for familiarality with users of other types of
-       IO board. Consider using :func:`pifacecommon.core.write_bit` instead.
-
-       >>> pifacecommon.core.write_bit(value, pin_num, OUTPUT_PORT, board_num)
-
-    :param pin_num: The pin number to write to.
-    :type pin_num: int
-    :param value: The value to write.
-    :type value: int
-    :param board_num: The board to read from (default: 0)
-    :type board_num: int
-    """
-    pifacecommon.core.write_bit(value, pin_num, OUTPUT_PORT, board_num)
+#     :param pin_num: The pin number to read.
+#     :type pin_num: int
+#     :param board_num: The board to read from (default: 0)
+#     :type board_num: int
+#     :returns: int -- value of the pin
+#     """
+#     return pifacecommon.core.read_bit(pin_num, INPUT_PORT, board_num) ^ 1
 
 
-def digital_read_pullup(pin_num, board_num=0):
-    """Returns the value of the input pullup specified.
+# def digital_write(pin_num, value, board_num=0):
+#     """Writes the value to the input pin specified.
 
-    .. note:: This function is for familiarality with users of other types of
-       IO board. Consider using :func:`pifacecommon.core.read_bit` instead.
+#     .. note:: This function is for familiarality with users of other types of
+#        IO board. Consider using :func:`pifacecommon.core.write_bit` instead.
 
-       >>> pifacecommon.core.read_bit(pin_num, INPUT_PULLUP, board_num)
+#        >>> pifacecommon.core.write_bit(
+#        ...     value, pin_num, OUTPUT_PORT, board_num)
 
-    :param pin_num: The pin number to read.
-    :type pin_num: int
-    :param board_num: The board to read from (default: 0)
-    :type board_num: int
-    :returns: int -- value of the pin
-    """
-    return pifacecommon.core.read_bit(pin_num, INPUT_PULLUP, board_num)
+#     :param pin_num: The pin number to write to.
+#     :type pin_num: int
+#     :param value: The value to write.
+#     :type value: int
+#     :param board_num: The board to read from (default: 0)
+#     :type board_num: int
+#     """
+#     pifacecommon.core.write_bit(value, pin_num, OUTPUT_PORT, board_num)
 
 
-def digital_write_pullup(pin_num, value, board_num=0):
-    """Writes the value to the input pullup specified.
+# def digital_read_pullup(pin_num, board_num=0):
+#     """Returns the value of the input pullup specified.
 
-    .. note:: This function is for familiarality with users of other types of
-       IO board. Consider using :func:`pifacecommon.core.write_bit` instead.
+#     .. note:: This function is for familiarality with users of other types of
+#        IO board. Consider using :func:`pifacecommon.core.read_bit` instead.
 
-       >>> pifacecommon.core.write_bit(value, pin_num, INPUT_PULLUP, board_num)
+#        >>> pifacecommon.core.read_bit(pin_num, INPUT_PULLUP, board_num)
 
-    :param pin_num: The pin number to write to.
-    :type pin_num: int
-    :param value: The value to write.
-    :type value: int
-    :param board_num: The board to read from (default: 0)
-    :type board_num: int
-    """
-    pifacecommon.core.write_bit(value, pin_num, INPUT_PULLUP, board_num)
+#     :param pin_num: The pin number to read.
+#     :type pin_num: int
+#     :param board_num: The board to read from (default: 0)
+#     :type board_num: int
+#     :returns: int -- value of the pin
+#     """
+#     return pifacecommon.core.read_bit(pin_num, INPUT_PULLUP, board_num)
+
+
+# def digital_write_pullup(pin_num, value, board_num=0):
+#     """Writes the value to the input pullup specified.
+
+#     .. note:: This function is for familiarality with users of other types of
+#        IO board. Consider using :func:`pifacecommon.core.write_bit` instead.
+
+#        >>> pifacecommon.core.write_bit(
+#        ...     value, pin_num, INPUT_PULLUP, board_num)
+
+#     :param pin_num: The pin number to write to.
+#     :type pin_num: int
+#     :param value: The value to write.
+#     :type value: int
+#     :param board_num: The board to read from (default: 0)
+#     :type board_num: int
+#     """
+#     pifacecommon.core.write_bit(value, pin_num, INPUT_PULLUP, board_num)
