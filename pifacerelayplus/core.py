@@ -1,197 +1,155 @@
-import subprocess
-import time
-from pifacecommon.mcp23s17 import (
-    MCP23S17,
-    BANK_OFF,
-    BANK_ON,
-    INT_MIRROR_ON,
-    INT_MIRROR_OFF,
-    SEQOP_OFF,
-    SEQOP_ON,
-    DISSLW_ON,
-    DISSLW_OFF,
-    HAEN_ON,
-    HAEN_OFF,
-    ODR_ON,
-    ODR_OFF,
-    INTPOL_HIGH,
-    INTPOL_LOW,
-)
+import pifacecommon.interrupts
+import pifacecommon.mcp23s17
 
 
 # /dev/spidev<bus>.<chipselect>
 DEFAULT_SPI_BUS = 0
 DEFAULT_SPI_CHIP_SELECT = 0
 
-# some easier to remember/read values
-# OUTPUT_PORT = pifacecommon.core.GPIOA
-# INPUT_PORT = pifacecommon.core.GPIOB
-# INPUT_PULLUP = pifacecommon.core.GPPUB
-
-MOTOR_FORWARD_BITS = (0, 0)  # (pin_num1, pin_num2)
-MOTOR_BACK_BITS = (0, 1)
-MOTOR_STOP_BITS = (1, 0)
-MOTOR_COAST_BITS = (1, 1)
+# (pin_num1, pin_num2)
+MOTOR_COAST_BITS = (0, 0)  # Z, Z
+MOTOR_REVERSE_BITS = (0, 1)  # L, H
+MOTOR_FORWARD_BITS = (1, 0)  # H, L
+MOTOR_BRAKE_BITS = (1, 1)  # L, L
 
 # Plus boards
-RELAY_BOARD, MOTOR_BOARD = range(2)
-
-
-class InitError(Exception):
-    pass
+RELAY, MOTOR, DIGITAL = range(3)
 
 
 class NoPiFaceRelayPlusDetectedError(Exception):
     pass
 
 
-class Relay(pifacecommon.core.DigitalOutputItem):
-    """A relay on a PiFace Digital board. Inherits
-    :class:`pifacecommon.core.DigitalOutputItem`.
-    """
-    def __init__(self, relay_num, hardware_addr=0):
-        if relay_num < 0 or relay_num > 8:
-            raise pifacecommon.core.RangeError(
-                "Specified relay index (%d) out of range." % relay_num)
-        else:
-            super(Relay, self).__init__(relay_num, pifacecommon.core.GPIOA,
-                                        hardware_addr, toggle_mask=0)
-            # Toggle mask is supposed to be 1 according to schematic
-
-
 class Motor(object):
-    """A motor attached to a PiFace Relay Plus."""
-    def __init__(self, pin_num1, pin_num2, port, hardware_addr=0, toggle_mask=0):
-        self.pin_num1 = pin_num1
-        self.pin_num2 = pin_num2
-        self.port = port
-        self.hardware_addr = hardware_addr
-        self.toggle_mask = toggle_mask
-
-    @property
-    def handler(self):
-        """The module that handles this port (can be useful for
-        emulator/testing).
-        """
-        return sys.modules[__name__]
-
-    def forward(self):
-        """Sets the motor so that it is moving forward."""
-        self.set_pins(MOTOR_FORWARD_BITS[0], MOTOR_FORWARD_BITS[1])
-
-    def back(self):
-        """Sets the motor so that it is moving backwards."""
-        self.set_pins(MOTOR_BACK_BITS[0], MOTOR_BACK_BITS[1])
-
-    def stop(self):
-        """Stop the motor."""
-        self.set_pins(MOTOR_STOP_BITS[0], MOTOR_STOP_BITS[1])
+    """A motor driver attached to a PiFace Relay Plus. Uses DRV8835."""
+    def __init__(self, pin1, pin2):
+        self.pin1 = pin1
+        self.pin2 = pin2
+        self.brake()
 
     def coast(self):
         """Sets the motor so that it is coasting."""
-        self.set_pins(MOTOR_COAST_BITS[0], MOTOR_COAST_BITS[1])
+        self.pin1.value = MOTOR_COAST_BITS[0]
+        self.pin2.value = MOTOR_COAST_BITS[1]
 
-    def set_pins(self, pin1, pin2):
-        port_value = self.handler.read(self.port, self.hardware_addr)
-        # clear the bits owned by this motor
-        mask = 0xFF ^ (0 << self.pin_num1) ^ (0 << self.pin_num2)
-        port_value &= mask
-        # set the bits for this motor
-        port_value ^= \
-            ((self.toggle_mask ^ pin1) << self.pin_num1) ^ \
-            ((self.toggle_mask ^ pin2) << self.pin_num2)
-        self.handler.write(port_value, self.port, self.hardware_addr)
+    def reverse(self):
+        """Sets the motor so that it is moving in reverse."""
+        self.pin1.value = MOTOR_REVERSE_BITS[0]
+        self.pin2.value = MOTOR_REVERSE_BITS[1]
+
+    def forward(self):
+        """Sets the motor so that it is moving forward."""
+        self.pin1.value = MOTOR_FORWARD_BITS[0]
+        self.pin2.value = MOTOR_FORWARD_BITS[1]
+
+    def brake(self):
+        """Stop the motor."""
+        self.pin1.value = MOTOR_BRAKE_BITS[0]
+        self.pin2.value = MOTOR_BRAKE_BITS[1]
 
 
-class PiFaceRelayPlus(MCP23S17):
+class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
+                      pifacecommon.interrupts.GPIOInterruptDevice):
     """A PiFace Relay Plus board.
-
-    :attribute: hardware_addr -- The board number.
-    :attribute: input_port1 -- See :class:`pifacecommon.core.DigitalInputPort`.
-    :attribute: input_pins -- list containing
-        :class:`pifacecommon.core.DigitalInputPin`.
-    :attribute: relays -- list containing :class:`Relay`.
-    :attribute: motors -- list containing :class:`Motor`.
 
     Example:
 
-    >>> prp = pifacerelayplus.PiFaceRelayPlus()
-    >>> prp.input_port.value
+    >>> pfrp = pifacerelayplus.PiFaceRelayPlus(pifacerelayplus.MOTOR)
+    >>> pfrp.inputs[2].value
     0
-    >>> prp.relays[3].turn_on()
-    >>> prp.motor[2].forward()
+    >>> pfrp.relays[3].turn_on()
+    >>> pfrp.motor[2].forward()
     """
     def __init__(self,
+                 plus_board,
+                 init_board=True,
                  hardware_addr=0,
                  bus=DEFAULT_SPI_BUS,
                  chip_select=DEFAULT_SPI_CHIP_SELECT):
         super(PiFaceRelayPlus, self).__init__(hardware_addr, bus, chip_select)
 
-        # config
-        self.iocon.value = (
-            BANK_OFF |
-            INT_MIRROR_OFF |
-            SEQOP_OFF |
-            DISSLW_OFF |
-            HAEN_ON |
-            ODR_OFF |
-            INTPOL_LOW
+        # inputs are always the upper nibble of GPIOB
+        self.inputs = [pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
+            i,
+            pifacecommon.mcp23s17.GPIOB,
+            self)
+            for i in range(4, 8)]
+        self.input_port = pifacecommon.mcp23s17.MCP23S17RegisterNibbleNeg(
+            pifacecommon.mcp23s17.UPPER_NIBBLE,
+            pifacecommon.mcp23s17.GPIOB,
+            self)
+
+        # Relays are always lower nibble of GPIOA, order is reversed
+        self.relays = list(reversed([pifacecommon.mcp23s17.MCP23S17RegisterBit(
+            i, pifacecommon.mcp23s17.GPIOA, self)
+            for i in range(0, 4)]))
+
+        if plus_board == RELAY:
+            # append 4 relays
+            self.relays.append = [pifacecommon.mcp23s17.MCP23S17RegisterBit(
+                i, pifacecommon.mcp23s17.GPIOA, self)
+                for i in range(4, 8)]
+
+        elif plus_board == MOTOR:
+            self.motors = [
+                Motor(
+                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
+                        3, pifacecommon.mcp23s17.GPIOB, self),
+                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
+                        2, pifacecommon.mcp23s17.GPIOB, self)),
+                Motor(
+                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
+                        1, pifacecommon.mcp23s17.GPIOB, self),
+                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
+                        0, pifacecommon.mcp23s17.GPIOB, self)),
+                Motor(
+                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBit(
+                        4, pifacecommon.mcp23s17.GPIOA, self),
+                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBit(
+                        5, pifacecommon.mcp23s17.GPIOA, self)),
+                Motor(
+                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBit(
+                        7, pifacecommon.mcp23s17.GPIOA, self),
+                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBit(
+                        6, pifacecommon.mcp23s17.GPIOA, self)),
+            ]
+
+        elif plus_board == DIGITAL:
+            pass
+
+        if init_board:
+            self.init_board()
+
+    def __del__(self):
+        # disable interrupts
+        self.gpintenb.value = 0x00
+        self.gpio_interrupts_disable()
+        super(PiFaceRelayPlus, self).__del__()
+
+    def init_board(self):
+        ioconfig = (
+            pifacecommon.mcp23s17.BANK_OFF |
+            pifacecommon.mcp23s17.INT_MIRROR_OFF |
+            pifacecommon.mcp23s17.SEQOP_OFF |
+            pifacecommon.mcp23s17.DISSLW_OFF |
+            pifacecommon.mcp23s17.HAEN_ON |
+            pifacecommon.mcp23s17.ODR_OFF |
+            pifacecommon.mcp23s17.INTPOL_LOW
         )
-
-        self.gpioa.value = 0
-        self.iodira.value = 0
-        self.iodirb.value = 0xf0
-        self.gppub.value = 0xf0
-
-        self.relays = self.gpioa ## YOU ARE HERE
-
-        # self.input_port = pifacecommon.core.DigitalInputPort(
-        #     port=pifacecommon.core.GPIOB,
-        #     hardware_addr=self.hardware_addr,
-        #     bit_mask=0xf0,  # shift this?
-        #     toggle_mask=0x00)
-        # self.input_pins = [
-        #     pifacecommon.core.DigitalInputItem(
-        #         pin_num=i,
-        #         port=pifacecommon.core.GPIOB,
-        #         hardware_addr=self.hardware_addr,
-        #         toggle_mask=0)
-        #     for i in range(4, 8)
-        # ]
-
-        #self.relays = [Relay(i, hardware_addr) for i in range(4)]
-
-        #self.relays_plus = [Relay(i, hardware_addr) for i in range(4, 8)]
-        # don't seperate (let the user access relay 5 even if motor is on)
-
-        # make these dependant on init
-        # init(motors=True)
-        # init(relays=True)
-        # init(some_other_addon=True)
-        self.relays = [Relay(i, hardware_addr) for i in range(8)]
-
-        self.motors = [
-            Motor(pin_num1=4,
-                  pin_num2=5,
-                  port=pifacecommon.core.GPIOA,
-                  hardware_addr=self.hardware_addr,
-                  toggle_mask=1),
-            Motor(pin_num1=6,
-                  pin_num2=7,
-                  port=pifacecommon.core.GPIOA,
-                  hardware_addr=self.hardware_addr,
-                  toggle_mask=1),
-            Motor(pin_num1=3,
-                  pin_num2=2,
-                  port=pifacecommon.core.GPIOB,
-                  hardware_addr=self.hardware_addr,
-                  toggle_mask=0),
-            Motor(pin_num1=1,
-                  pin_num2=0,
-                  port=pifacecommon.core.GPIOB,
-                  hardware_addr=self.hardware_addr,
-                  toggle_mask=0)
-        ]
+        self.iocon.value = ioconfig
+        if self.iocon.value != ioconfig:
+            raise NoPiFaceRelayPlusDetectedError(
+                "No PiFace Relay Plus board detected (hardware_addr={h}, "
+                "bus={b}, chip_select={c}).".format(
+                    h=self.hardware_addr, b=self.bus, c=self.chip_select))
+        else:
+            # finish configuring the board
+            self.gpioa.value = 0
+            self.iodira.value = 0  # GPIOA as outputs
+            self.iodirb.value = 0xf0  # GPIOB lower nibble as outputs
+            self.gppub.value = 0xf0
+            self.gpintenb.value = 0xF0  # enable interrupts
+            self.gpio_interrupts_enable()
 
 
 class InputEventListener(pifacecommon.interrupts.PortEventListener):
@@ -206,147 +164,5 @@ class InputEventListener(pifacecommon.interrupts.PortEventListener):
     >>> listener.activate()
     """
     def __init__(self, hardware_addr=0):
-        super(InputEventListener, self).__init__(INPUT_PORT, hardware_addr)
-
-
-def init(init_board=True,
-         bus=DEFAULT_SPI_BUS,
-         chip_select=DEFAULT_SPI_CHIP_SELECT):
-    """Initialises all PiFace Relay Plus boards.
-
-    :param board_type: The type of board.
-    :type board_type: int
-        (use: pifacerelayplus.RELAY_BOARD, pifacerelayplus.MOTOR_BOARD)
-    :param init_board: Initialise each board (default: True)
-    :type init_board: boolean
-    :param bus: SPI bus /dev/spidev<bus>.<chipselect> (default: {bus})
-    :type bus: int
-    :param chip_select: SPI bus /dev/spidev<bus>.<chipselect> (default: {chip})
-    :type chip_select: int
-    :raises: :class:`NoPiFaceRelayPlusDetectedError`
-    """.format(bus=DEFAULT_SPI_BUS, chip=DEFAULT_SPI_CHIP_SELECT)
-
-    pifacecommon.core.init(bus, chip_select)
-
-    if init_board:
-         # set up each board
-        ioconfig = (
-            pifacecommon.core.BANK_OFF |
-            pifacecommon.core.INT_MIRROR_OFF |
-            pifacecommon.core.SEQOP_OFF |
-            pifacecommon.core.DISSLW_OFF |
-            pifacecommon.core.HAEN_ON |
-            pifacecommon.core.ODR_OFF |
-            pifacecommon.core.INTPOL_LOW
-        )
-
-        pfrp_detected = False
-
-        for board_index in range(pifacecommon.core.MAX_BOARDS):
-            pifacecommon.core.write(
-                ioconfig, pifacecommon.core.IOCON, board_index)
-
-            if not pfrp_detected:
-                pfioconf = pifacecommon.core.read(
-                    pifacecommon.core.IOCON, board_index)
-                if pfioconf == ioconfig:
-                    pfrp_detected = True
-
-            # clear port A and set it as an output
-            pifacecommon.core.write(0, pifacecommon.core.GPIOA, board_index)
-            pifacecommon.core.write(0, pifacecommon.core.IODIRA, board_index)
-
-            # set port B upper nibble as input, lower nibble as input
-            pifacecommon.core.write(
-                0xf0, pifacecommon.core.IODIRB, board_index)
-
-            ################# !!!!!!!!!!!!!!!!!!!!!! #################
-            # turn pullups on, ask Andrew about this
-            pifacecommon.core.write(0xf0, pifacecommon.core.GPPUB, board_index)
-            ################# !!!!!!!!!!!!!!!!!!!!!! #################
-
-        if not pfrp_detected:
-            raise NoPiFaceRelayPlusDetectedError(
-                "No PiFace Relay Plus board detected!")
-        else:
-            pifacecommon.interrupts.enable_interrupts(
-                port=pifacecommon.core.GPIOB, pin_map=0xf0)
-
-
-def deinit():
-    """Deinitialises all PiFace Relay Plus boards."""
-    pifacecommon.interrupts.disable_interrupts(pifacecommon.core.GPIOB)
-    pifacecommon.core.deinit()
-
-
-# wrapper functions for backwards compatibility
-# def digital_read(pin_num, hardware_addr=0):
-#     """Returns the value of the input pin specified.
-
-#     .. note:: This function is for familiarality with users of other types of
-#        IO board. Consider using :func:`pifacecommon.core.read_bit` instead.
-
-#        >>> pifacecommon.core.read_bit(pin_num, INPUT_PORT, hardware_addr)
-
-#     :param pin_num: The pin number to read.
-#     :type pin_num: int
-#     :param hardware_addr: The board to read from (default: 0)
-#     :type hardware_addr: int
-#     :returns: int -- value of the pin
-#     """
-#     return pifacecommon.core.read_bit(pin_num, INPUT_PORT, hardware_addr) ^ 1
-
-
-# def digital_write(pin_num, value, hardware_addr=0):
-#     """Writes the value to the input pin specified.
-
-#     .. note:: This function is for familiarality with users of other types of
-#        IO board. Consider using :func:`pifacecommon.core.write_bit` instead.
-
-#        >>> pifacecommon.core.write_bit(
-#        ...     value, pin_num, OUTPUT_PORT, hardware_addr)
-
-#     :param pin_num: The pin number to write to.
-#     :type pin_num: int
-#     :param value: The value to write.
-#     :type value: int
-#     :param hardware_addr: The board to read from (default: 0)
-#     :type hardware_addr: int
-#     """
-#     pifacecommon.core.write_bit(value, pin_num, OUTPUT_PORT, hardware_addr)
-
-
-# def digital_read_pullup(pin_num, hardware_addr=0):
-#     """Returns the value of the input pullup specified.
-
-#     .. note:: This function is for familiarality with users of other types of
-#        IO board. Consider using :func:`pifacecommon.core.read_bit` instead.
-
-#        >>> pifacecommon.core.read_bit(pin_num, INPUT_PULLUP, hardware_addr)
-
-#     :param pin_num: The pin number to read.
-#     :type pin_num: int
-#     :param hardware_addr: The board to read from (default: 0)
-#     :type hardware_addr: int
-#     :returns: int -- value of the pin
-#     """
-#     return pifacecommon.core.read_bit(pin_num, INPUT_PULLUP, hardware_addr)
-
-
-# def digital_write_pullup(pin_num, value, hardware_addr=0):
-#     """Writes the value to the input pullup specified.
-
-#     .. note:: This function is for familiarality with users of other types of
-#        IO board. Consider using :func:`pifacecommon.core.write_bit` instead.
-
-#        >>> pifacecommon.core.write_bit(
-#        ...     value, pin_num, INPUT_PULLUP, hardware_addr)
-
-#     :param pin_num: The pin number to write to.
-#     :type pin_num: int
-#     :param value: The value to write.
-#     :type value: int
-#     :param hardware_addr: The board to read from (default: 0)
-#     :type hardware_addr: int
-#     """
-#     pifacecommon.core.write_bit(value, pin_num, INPUT_PULLUP, hardware_addr)
+        super(InputEventListener, self).__init__(
+            pifacecommon.mcp23s17.GPIOB, hardware_addr)

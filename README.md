@@ -1,11 +1,9 @@
 pifacerelayplus
 ===============
-The PiFace Digital Input/Output module ([PyPI](https://pypi.python.org/pypi/pifacerelayplus/)).
-
+The PiFace Relay Plus module.
 
 Documentation
 =============
-
 [http://piface.github.io/pifacerelayplus/](http://piface.github.io/pifacerelayplus/)
 
 You can also find the documentation and some examples installed at:
@@ -14,9 +12,15 @@ You can also find the documentation and some examples installed at:
 
 Install
 =======
+Aptitude
+--------
+Try this first:
 
-Download the debian package from
-[here](https://github.com/piface/pifacerelayplus/releases) and install with:
+    sudo apt-get install python{,3}-pifacerelayplus
+
+Debian Package
+--------------
+Download the debian package from [here](https://github.com/piface/pifacerelayplus/releases) and install with:
 
     $ dpkg -i python3-pifacerelayplus-1.0.0-1_all.deb
 
