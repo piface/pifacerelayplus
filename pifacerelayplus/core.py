@@ -6,11 +6,12 @@ import pifacecommon.mcp23s17
 DEFAULT_SPI_BUS = 0
 DEFAULT_SPI_CHIP_SELECT = 0
 
+# Datasheet says coast is 0, 0 and bake is 1, 1. I think it's wrong.
 # (pin_num1, pin_num2)
-MOTOR_COAST_BITS = (0, 0)  # Z, Z
+MOTOR_COAST_BITS = (1, 1)  # Z, Z
 MOTOR_REVERSE_BITS = (0, 1)  # L, H
 MOTOR_FORWARD_BITS = (1, 0)  # H, L
-MOTOR_BRAKE_BITS = (1, 1)  # L, L
+MOTOR_BRAKE_BITS = (0, 0)  # L, L
 
 # Plus boards
 RELAY, MOTOR, DIGITAL = range(3)
@@ -62,17 +63,15 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
     """
     def __init__(self,
                  plus_board,
-                 init_board=True,
                  hardware_addr=0,
                  bus=DEFAULT_SPI_BUS,
-                 chip_select=DEFAULT_SPI_CHIP_SELECT):
+                 chip_select=DEFAULT_SPI_CHIP_SELECT,
+                 init_board=True):
         super(PiFaceRelayPlus, self).__init__(hardware_addr, bus, chip_select)
 
-        # inputs are always the upper nibble of GPIOB
-        self.inputs = [pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
-            i,
-            pifacecommon.mcp23s17.GPIOB,
-            self)
+        # input_pins are always the upper nibble of GPIOB
+        self.input_pins = [pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
+            i, pifacecommon.mcp23s17.GPIOB, self)
             for i in range(4, 8)]
         self.input_port = pifacecommon.mcp23s17.MCP23S17RegisterNibbleNeg(
             pifacecommon.mcp23s17.UPPER_NIBBLE,
@@ -109,9 +108,9 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
                         5, pifacecommon.mcp23s17.GPIOA, self)),
                 Motor(
                     pin1=pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                        7, pifacecommon.mcp23s17.GPIOA, self),
+                        6, pifacecommon.mcp23s17.GPIOA, self),
                     pin2=pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                        6, pifacecommon.mcp23s17.GPIOA, self)),
+                        7, pifacecommon.mcp23s17.GPIOA, self)),
             ]
 
         elif plus_board == DIGITAL:
@@ -121,10 +120,16 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
             self.init_board()
 
     def __del__(self):
-        # disable interrupts
+        self.disable_interrupts()
+        super(PiFaceRelayPlus, self).__del__()
+
+    def enable_interrupts(self):
+        self.gpintenb.value = 0xF0
+        self.gpio_interrupts_enable()
+
+    def disable_interrupts(self):
         self.gpintenb.value = 0x00
         self.gpio_interrupts_disable()
-        super(PiFaceRelayPlus, self).__del__()
 
     def init_board(self):
         ioconfig = (
@@ -148,8 +153,7 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
             self.iodira.value = 0  # GPIOA as outputs
             self.iodirb.value = 0xf0  # GPIOB lower nibble as outputs
             self.gppub.value = 0xf0
-            self.gpintenb.value = 0xF0  # enable interrupts
-            self.gpio_interrupts_enable()
+            self.enable_interrupts()
 
 
 class InputEventListener(pifacecommon.interrupts.PortEventListener):
@@ -163,6 +167,6 @@ class InputEventListener(pifacecommon.interrupts.PortEventListener):
     >>> listener.register(0, pifacerelayplus.IODIR_ON, print_flag)
     >>> listener.activate()
     """
-    def __init__(self, hardware_addr=0):
+    def __init__(self, chip):
         super(InputEventListener, self).__init__(
-            pifacecommon.mcp23s17.GPIOB, hardware_addr)
+            pifacecommon.mcp23s17.GPIOB, chip)

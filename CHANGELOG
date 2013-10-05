@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+v0.1.1
+------
+- Fixed motors. Everything should work now.
+
 v0.1.0
 ------
 - Inital structure.
