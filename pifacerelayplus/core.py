@@ -85,9 +85,9 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
 
         if plus_board == RELAY:
             # append 4 relays
-            self.relays.append = [pifacecommon.mcp23s17.MCP23S17RegisterBit(
+            self.relays.extend([pifacecommon.mcp23s17.MCP23S17RegisterBit(
                 i, pifacecommon.mcp23s17.GPIOA, self)
-                for i in range(4, 8)]
+                for i in range(4, 8)])
 
         elif plus_board == MOTOR:
             self.motors = [
