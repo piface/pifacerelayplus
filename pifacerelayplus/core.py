@@ -69,48 +69,38 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
                  init_board=True):
         super(PiFaceRelayPlus, self).__init__(hardware_addr, bus, chip_select)
 
+        pcmcp = pifacecommon.mcp23s17
+
         # input_pins are always the upper nibble of GPIOB
-        self.input_pins = [pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
-            i, pifacecommon.mcp23s17.GPIOB, self)
-            for i in range(4, 8)]
-        self.input_port = pifacecommon.mcp23s17.MCP23S17RegisterNibbleNeg(
-            pifacecommon.mcp23s17.UPPER_NIBBLE,
-            pifacecommon.mcp23s17.GPIOB,
-            self)
+        self.input_pins = [pcmcp.MCP23S17RegisterBitNeg(i,
+                                                        pcmcp.GPIOB,
+                                                        self)
+                           for i in range(4, 8)]
+        self.input_port = pcmcp.MCP23S17RegisterNibbleNeg(pcmcp.UPPER_NIBBLE,
+                                                          pcmcp.GPIOB,
+                                                          self)
 
         # Relays are always lower nibble of GPIOA, order is reversed
-        self.relays = list(reversed([pifacecommon.mcp23s17.MCP23S17RegisterBit(
-            i, pifacecommon.mcp23s17.GPIOA, self)
-            for i in range(0, 4)]))
+        self.relays = list(reversed([pcmcp.MCP23S17RegisterBit(i,
+                                                               pcmcp.GPIOA,
+                                                               self)
+                                     for i in range(0, 4)]))
 
         if plus_board == RELAY:
             # append 4 relays
-            self.relays.extend([pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                i, pifacecommon.mcp23s17.GPIOA, self)
-                for i in range(4, 8)])
+            self.relays.extend([pcmcp.MCP23S17RegisterBit(i, pcmcp.GPIOA, self)
+                                for i in range(4, 8)])
 
         elif plus_board == MOTOR:
             self.motors = [
-                Motor(
-                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
-                        3, pifacecommon.mcp23s17.GPIOB, self),
-                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
-                        2, pifacecommon.mcp23s17.GPIOB, self)),
-                Motor(
-                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
-                        1, pifacecommon.mcp23s17.GPIOB, self),
-                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBitNeg(
-                        0, pifacecommon.mcp23s17.GPIOB, self)),
-                Motor(
-                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                        4, pifacecommon.mcp23s17.GPIOA, self),
-                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                        5, pifacecommon.mcp23s17.GPIOA, self)),
-                Motor(
-                    pin1=pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                        6, pifacecommon.mcp23s17.GPIOA, self),
-                    pin2=pifacecommon.mcp23s17.MCP23S17RegisterBit(
-                        7, pifacecommon.mcp23s17.GPIOA, self)),
+                Motor(pin1=pcmcp.MCP23S17RegisterBitNeg(3, pcmcp.GPIOB, self),
+                      pin2=pcmcp.MCP23S17RegisterBitNeg(2, pcmcp.GPIOB, self)),
+                Motor(pin1=pcmcp.MCP23S17RegisterBitNeg(1, pcmcp.GPIOB, self),
+                      pin2=pcmcp.MCP23S17RegisterBitNeg(0, pcmcp.GPIOB, self)),
+                Motor(pin1=pcmcp.MCP23S17RegisterBit(4, pcmcp.GPIOA, self),
+                      pin2=pcmcp.MCP23S17RegisterBit(5, pcmcp.GPIOA, self)),
+                Motor(pin1=pcmcp.MCP23S17RegisterBit(6, pcmcp.GPIOA, self),
+                      pin2=pcmcp.MCP23S17RegisterBit(7, pcmcp.GPIOA, self)),
             ]
 
         elif plus_board == DIGITAL:
@@ -132,15 +122,13 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         self.gpio_interrupts_disable()
 
     def init_board(self):
-        ioconfig = (
-            pifacecommon.mcp23s17.BANK_OFF |
-            pifacecommon.mcp23s17.INT_MIRROR_OFF |
-            pifacecommon.mcp23s17.SEQOP_OFF |
-            pifacecommon.mcp23s17.DISSLW_OFF |
-            pifacecommon.mcp23s17.HAEN_ON |
-            pifacecommon.mcp23s17.ODR_OFF |
-            pifacecommon.mcp23s17.INTPOL_LOW
-        )
+        ioconfig = (pifacecommon.mcp23s17.BANK_OFF |
+                    pifacecommon.mcp23s17.INT_MIRROR_OFF |
+                    pifacecommon.mcp23s17.SEQOP_OFF |
+                    pifacecommon.mcp23s17.DISSLW_OFF |
+                    pifacecommon.mcp23s17.HAEN_ON |
+                    pifacecommon.mcp23s17.ODR_OFF |
+                    pifacecommon.mcp23s17.INTPOL_LOW)
         self.iocon.value = ioconfig
         if self.iocon.value != ioconfig:
             raise NoPiFaceRelayPlusDetectedError(
