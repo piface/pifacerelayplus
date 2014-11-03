@@ -17,7 +17,11 @@ MOTOR_DC_BRAKE_BITS = (0, 0)  # L, L
 
 # Plus boards
 # Motor board IC datasheet: http://www.ti.com/lit/ds/symlink/drv8835.pdf
-RELAY, MOTOR_DC, MOTOR_STEPPER, DIGITAL = range(4)
+# RELAY, MOTOR_DC, MOTOR_STEPPER, DIGITAL = range(4)
+RELAY, MOTOR_DC, MOTOR_STEPPER = range(3)
+
+DEFAULT_GPIOA_CONF = {'value': 0, 'direction': 0, 'pullup': 0},
+DEFAULT_GPIOB_CONF = {'value': 0, 'direction': 0xff, 'pullup': 0xff}
 
 
 class NoPiFaceRelayPlusDetectedError(Exception):
@@ -122,13 +126,11 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         pcmcp = pifacecommon.mcp23s17
 
         # input_pins are always the upper nibble of GPIOB
-        self.input_pins = [pcmcp.MCP23S17RegisterBitNeg(i,
-                                                        pcmcp.GPIOB,
-                                                        self)
-                           for i in range(8)]
-        self.input_port = pcmcp.MCP23S17RegisterNibbleNeg(pcmcp.UPPER_NIBBLE,
-                                                          pcmcp.GPIOB,
-                                                          self)
+        self.x_pins = [pcmcp.MCP23S17RegisterBitNeg(i, pcmcp.GPIOB, self)
+                           for i in range(4, 8)]
+        self.x_port = pcmcp.MCP23S17RegisterNibbleNeg(pcmcp.UPPER_NIBBLE,
+                                                      pcmcp.GPIOB,
+                                                      self)
 
         self.relay_port = pcmcp.MCP23S17Register(pcmcp.GPIOA, self)
 
@@ -142,6 +144,14 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
             # append 4 relays
             self.relays.extend([pcmcp.MCP23S17RegisterBit(i, pcmcp.GPIOA, self)
                                 for i in range(4, 8)])
+            # add the y port
+            self.y_pins = [pcmcp.MCP23S17RegisterBitNeg(i, pcmcp.GPIOB, self)
+                           for i in range(4)]
+            self.y_port = pcmcp.MCP23S17RegisterNibbleNeg(pcmcp.LOWER_NIBBLE,
+                                                          pcmcp.GPIOB,
+                                                          self)
+            gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+            gpiob_conf = {'value': 0, 'direction': 0xff, 'pullup': 0xff}
 
         elif plus_board == MOTOR_DC:
             self.motors = [
@@ -156,15 +166,22 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
                 MotorDC(pin1=pcmcp.MCP23S17RegisterBit(6, pcmcp.GPIOA, self),
                         pin2=pcmcp.MCP23S17RegisterBit(7, pcmcp.GPIOA, self)),
             ]
+            gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+            gpiob_conf = {'value': 0, 'direction': 0, 'pullup': 0}
 
         elif plus_board == MOTOR_STEPPER:
             self.motors = [MotorStepper(i, self) for i in range(2)]
+            gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+            gpiob_conf = {'value': 0, 'direction': 0, 'pullup': 0}
 
-        elif plus_board == DIGITAL:
-            pass
+        # elif plus_board == DIGITAL:
+        #     pass
+        else:
+            gpioa_conf = DEFAULT_GPIOA_CONF
+            gpiob_conf = DEFAULT_GPIOB_CONF
 
         if init_board:
-            self.init_board()
+            self.init_board(gpioa_conf, gpiob_conf)
 
     def __del__(self):
         self.disable_interrupts()
@@ -178,7 +195,10 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         self.gpintenb.value = 0x00
         self.gpio_interrupts_disable()
 
-    def init_board(self):
+    def init_board(self,
+                   gpioa_conf=DEFAULT_GPIOA_CONF,
+                   gpiob_conf=DEFAULT_GPIOB_CONF):
+        """Initialise the board with given GPIO configurations."""
         ioconfig = (pifacecommon.mcp23s17.BANK_OFF |
                     pifacecommon.mcp23s17.INT_MIRROR_OFF |
                     pifacecommon.mcp23s17.SEQOP_OFF |
@@ -190,14 +210,20 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         if self.iocon.value != ioconfig:
             raise NoPiFaceRelayPlusDetectedError(
                 "No PiFace Relay Plus board detected (hardware_addr={h}, "
-                "bus={b}, chip_select={c}).".format(
-                    h=self.hardware_addr, b=self.bus, c=self.chip_select))
+                "bus={b}, chip_select={c}).".format(h=self.hardware_addr,
+                                                    b=self.bus,
+                                                    c=self.chip_select))
         else:
             # finish configuring the board
-            self.gpioa.value = 0
-            self.iodira.value = 0  # GPIOA as outputs
-            self.iodirb.value = 0xf0  # GPIOB lower nibble as outputs
-            self.gppub.value = 0xf0
+            # GPIOA
+            self.gpioa.value = gpioa_conf['value']
+            self.iodira.value = gpioa_conf['direction']
+            self.gppua.value = gpioa_conf['pullup']
+            # GPIOB
+            self.gpiob.value = gpiob_conf['value']
+            self.iodirb.value = gpiob_conf['direction']
+            self.gppub.value = gpiob_conf['pullup']
+
             self.enable_interrupts()
 
 
@@ -213,5 +239,5 @@ class InputEventListener(pifacecommon.interrupts.PortEventListener):
     >>> listener.activate()
     """
     def __init__(self, chip):
-        super(InputEventListener, self).__init__(
-            pifacecommon.mcp23s17.GPIOB, chip)
+        super(InputEventListener, self).__init__(pifacecommon.mcp23s17.GPIOB,
+                                                 chip)

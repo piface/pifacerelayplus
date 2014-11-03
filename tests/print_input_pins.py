@@ -7,6 +7,10 @@ import pifacerelayplus
 
 if __name__ == '__main__':
     pfrp = pifacerelayplus.PiFaceRelayPlus(pifacerelayplus.RELAY)
-    print("Relay Plus input values:")
-    for i in range(8):
-        print("{} - {}".format(i, pfrp.input_port[i].value))
+    print("Relay Plus x-input values:")
+    for i in range(4):
+        print("{} - {}".format(i, pfrp.x_pins[i].value))
+
+    print("Relay Plus y-input values:")
+    for i in range(4):
+        print("{} - {}".format(i, pfrp.y_pins[i].value))
