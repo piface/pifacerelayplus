@@ -7,6 +7,7 @@ import time
 DEFAULT_SPI_BUS = 0
 DEFAULT_SPI_CHIP_SELECT = 0
 
+
 # Datasheet says coast is 0, 0 and bake is 1, 1. I think it's wrong.
 # (pin_num1, pin_num2)
 MOTOR_DC_COAST_BITS = (1, 1)  # Z, Z
@@ -25,6 +26,7 @@ class NoPiFaceRelayPlusDetectedError(Exception):
 
 class MotorDC(object):
     """A motor driver attached to a PiFace Relay Plus. Uses DRV8835."""
+
     def __init__(self, pin1, pin2):
         self.pin1 = pin1
         self.pin2 = pin2
@@ -108,6 +110,7 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
     >>> pfrp.relays[3].turn_on()
     >>> pfrp.motor[2].forward()
     """
+
     def __init__(self,
                  plus_board,
                  hardware_addr=0,
@@ -122,7 +125,7 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         self.input_pins = [pcmcp.MCP23S17RegisterBitNeg(i,
                                                         pcmcp.GPIOB,
                                                         self)
-                           for i in range(4, 8)]
+                           for i in range(8)]
         self.input_port = pcmcp.MCP23S17RegisterNibbleNeg(pcmcp.UPPER_NIBBLE,
                                                           pcmcp.GPIOB,
                                                           self)
