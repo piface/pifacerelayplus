@@ -20,26 +20,26 @@ class RobotArm(object):
     def set_direction(self, direction):
         self.pfrp.relays[DIRECTION_INDEX].value = direction
 
-    def move_relay_for_period(self, index, delay, direction):
+    def set_relay_for_period(self, index, delay, direction):
         self.set_direction(direction)
         self.pfrp.relays[index].turn_on()
         time.sleep(delay)
         self.pfrp.relays[index].turn_off()
 
     def move_base(self, delay, direction=0):
-        self.move_relay_for_period(BASE_INDEX, delay, direction)
+        self.set_relay_for_period(BASE_INDEX, delay, direction)
 
     def move_shoulder(self, delay, direction=0):
-        self.move_relay_for_period(SHOULDER_INDEX, delay, direction)
+        self.set_relay_for_period(SHOULDER_INDEX, delay, direction)
 
     def move_elbow(self, delay, direction=0):
-        self.move_relay_for_period(ELBOW_INDEX, delay, direction)
+        self.set_relay_for_period(ELBOW_INDEX, delay, direction)
 
     def move_wrist(self, delay, direction=0):
-        self.move_relay_for_period(WRIST_INDEX, delay, direction)
+        self.set_relay_for_period(WRIST_INDEX, delay, direction)
 
     def move_grip(self, delay, direction=0):
-        self.move_relay_for_period(GRIP_INDEX, delay, direction)
+        self.set_relay_for_period(GRIP_INDEX, delay, direction)
 
     def set_light(self, state):
         self.set_direction(0)
