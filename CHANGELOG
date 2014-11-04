@@ -5,6 +5,7 @@ v0.2.0
 ------
 - Introduced new way of handling of inputs/outputs on plus-boards: x-port
   and y-port.
+- Added MotorForwardReverseError.
 
 v0.1.1
 ------
