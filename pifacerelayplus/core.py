@@ -28,6 +28,15 @@ class NoPiFaceRelayPlusDetectedError(Exception):
     pass
 
 
+class MotorForwardReverseError(Exception):
+    """Too much current flows when instantly reversing motor direction."""
+
+    def __init__(self, state_into, state_from):
+        super().__init__(
+            "Cannot move into state `{}` from state `{}`. Must call "
+            "`brake` or `coast` first.".format(state_into, state_from))
+
+
 class MotorDC(object):
     """A motor driver attached to a PiFace Relay Plus. Uses DRV8835."""
 
@@ -40,21 +49,31 @@ class MotorDC(object):
         """Sets the motor so that it is coasting."""
         self.pin1.value = MOTOR_DC_COAST_BITS[0]
         self.pin2.value = MOTOR_DC_COAST_BITS[1]
+        self._current_state = 'coast'
 
     def reverse(self):
         """Sets the motor so that it is moving in reverse."""
-        self.pin1.value = MOTOR_DC_REVERSE_BITS[0]
-        self.pin2.value = MOTOR_DC_REVERSE_BITS[1]
+        if self._current_state == 'forward':
+            raise MotorForwardReverseError('reverse', self._current_state)
+        else:
+            self.pin1.value = MOTOR_DC_REVERSE_BITS[0]
+            self.pin2.value = MOTOR_DC_REVERSE_BITS[1]
+            self._current_state = 'reverse'
 
     def forward(self):
         """Sets the motor so that it is moving forward."""
-        self.pin1.value = MOTOR_DC_FORWARD_BITS[0]
-        self.pin2.value = MOTOR_DC_FORWARD_BITS[1]
+        if self._current_state == 'reverse':
+            raise MotorForwardReverseError('forward', self._current_state)
+        else:
+            self.pin1.value = MOTOR_DC_FORWARD_BITS[0]
+            self.pin2.value = MOTOR_DC_FORWARD_BITS[1]
+            self._current_state = 'forward'
 
     def brake(self):
         """Stop the motor."""
         self.pin1.value = MOTOR_DC_BRAKE_BITS[0]
         self.pin2.value = MOTOR_DC_BRAKE_BITS[1]
+        self._current_state = 'brake'
 
 
 class MotorStepper(object):
