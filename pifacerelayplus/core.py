@@ -135,7 +135,7 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
     """
 
     def __init__(self,
-                 plus_board,
+                 plus_board=None,
                  hardware_addr=0,
                  bus=DEFAULT_SPI_BUS,
                  chip_select=DEFAULT_SPI_CHIP_SELECT,
