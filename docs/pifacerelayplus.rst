@@ -2,8 +2,9 @@
 PiFace Relay Plus
 #################
 PiFace Relay Plus has four inputs and four relays (each relay is connected in
-parallel with an LED). `Plus Boards` offer additional functionality:
+parallel with an LED). `Extra Boards` offer additional functionality:
 
-- *Relay Plus Board* adds four more Relays.
-- *Motor Plus Board* adds four motor drivers.
-- *Digital Plus Board* adds four inputs/switches, four outputs/an RGB LED.
+- *Relay Extra Board* adds four more Relays.
+- *Motor Extra Board* adds two motor drivers capable of driving two motors
+  each for control of up to four motors.
+.. - *Digital Extra Board* adds four inputs/switches, four outputs/an RGB LED.

@@ -21,6 +21,11 @@ Basic usage
     >>> pfr.relays.value = 0xAA  # set all the relays to be 0b10101010
     >>> pfr.relays.all_off()
 
+    >>> pfr.motors[0].forward()  # drive the motor forward
+    >>> pfr.motors[0].coast()  # stop driving the motor and let it coast
+    >>> pfr.motors[0].reverse()  # drive the motor in reverse
+    >>> pfr.motors[0].brake()  # force the motor to stop
+
     >>> pfr.input_pins.value     # get the logical value of all the input pins
     0
 
@@ -30,8 +35,8 @@ Basic usage
     >>> bin(pfr.gpiob.value)  # fourth switch pressed (physical input port)
     '0b11110111'
 
-.. note: Values are active low on GPIO Port B. This is hidden in software
-   unless you inspect the GPIOB register.
+.. note: Values are active low on GPIO Port B. This is hidden by the software
+   libraries unless you inspect the GPIOB register.
 
 
 Interrupts
