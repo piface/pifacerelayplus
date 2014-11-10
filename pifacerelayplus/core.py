@@ -76,49 +76,49 @@ class MotorDC(object):
         self._current_state = 'brake'
 
 
-class MotorStepper(object):
-    """A stepper motor driver attached to a PiFace Relay Plus. Uses DRV8835."""
+# class MotorStepper(object):
+#     """A stepper motor driver attached to a PiFace Relay Plus. Uses DRV8835."""
 
-    step_states = (0xa, 0x2, 0x6, 0x4, 0x5, 0x1, 0x9, 0x8)
+#     step_states = (0xa, 0x2, 0x6, 0x4, 0x5, 0x1, 0x9, 0x8)
 
-    def __init__(self, index, chip):
-        self.chip = chip
-        if index == 0:
-            self.set_stepper = self._set_stepper0
-        else:
-            self.set_stepper = self._set_stepper1
+#     def __init__(self, index, chip):
+#         self.chip = chip
+#         if index == 0:
+#             self.set_stepper = self._set_stepper0
+#         else:
+#             self.set_stepper = self._set_stepper1
 
-    def _set_stepper0(self, value):
-        """GPIOB lower nibble, polarity reversed."""
-        gpiob = self.chip.gpiob.value & 0xf0
-        self.chip.gpiob.value = gpiob | ((value & 0xf) ^ 0xf)
+#     def _set_stepper0(self, value):
+#         """GPIOB lower nibble, polarity reversed."""
+#         gpiob = self.chip.gpiob.value & 0xf0
+#         self.chip.gpiob.value = gpiob | ((value & 0xf) ^ 0xf)
 
-    def _set_stepper1(self, value):
-        """GPIOA upper nibble, normal polarity."""
-        gpioa = self.chip.gpioa.value & 0x0f
-        self.chip.gpioa.value = gpioa | ((value & 0xf) << 4)
+#     def _set_stepper1(self, value):
+#         """GPIOA upper nibble, normal polarity."""
+#         gpioa = self.chip.gpioa.value & 0x0f
+#         self.chip.gpioa.value = gpioa | ((value & 0xf) << 4)
 
-    def _send_steps(self, step_states, steps, step_delay):
-        for i in range(steps):
-            step_index = i % len(step_states)
-            self.set_stepper(step_states[step_index])
-            time.sleep(step_delay)
+#     def _send_steps(self, step_states, steps, step_delay):
+#         for i in range(steps):
+#             step_index = i % len(step_states)
+#             self.set_stepper(step_states[step_index])
+#             time.sleep(step_delay)
 
-    def coast(self):
-        """Sets the motor so that it is coasting."""
-        self.set_stepper(0x0)
+#     def coast(self):
+#         """Sets the motor so that it is coasting."""
+#         self.set_stepper(0x0)
 
-    def reverse(self, steps, step_delay):
-        """Sets the motor so that it is moving in reverse."""
-        self._send_steps(reversed(self.step_states), steps, step_delay)
+#     def reverse(self, steps, step_delay):
+#         """Sets the motor so that it is moving in reverse."""
+#         self._send_steps(reversed(self.step_states), steps, step_delay)
 
-    def forward(self, steps, step_delay):
-        """Sets the motor so that it is moving forward."""
-        self._send_steps(self.step_states, steps, step_delay)
+#     def forward(self, steps, step_delay):
+#         """Sets the motor so that it is moving forward."""
+#         self._send_steps(self.step_states, steps, step_delay)
 
-    def brake(self):
-        """Stop the motor."""
-        self.set_stepper(0xf)
+#     def brake(self):
+#         """Stop the motor."""
+#         self.set_stepper(0xf)
 
 
 class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
@@ -207,10 +207,12 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         super(PiFaceRelayPlus, self).__del__()
 
     def enable_interrupts(self):
+        """Enables interrupts."""
         self.gpintenb.value = 0xF0
         self.gpio_interrupts_enable()
 
     def disable_interrupts(self):
+        """Disables interrupts."""
         self.gpintenb.value = 0x00
         self.gpio_interrupts_disable()
 

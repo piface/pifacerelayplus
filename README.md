@@ -4,7 +4,7 @@ The PiFace Relay Plus module.
 
 Documentation
 =============
-[http://piface.github.io/pifacerelayplus/](http://piface.github.io/pifacerelayplus/)
+[http://pifacedigitalio.readthedocs.org/](http://pifacedigitalio.readthedocs.org/)
 
 You can also find the documentation and some examples installed at:
 
@@ -22,7 +22,7 @@ Debian Package
 --------------
 Download the debian package from [here](https://github.com/piface/pifacerelayplus/releases) and install with:
 
-    $ dpkg -i python3-pifacerelayplus-1.0.0-1_all.deb
+    $ dpkg -i python3-pifacerelayplus-0.2.0-1_all.deb
 
 You may need to download and install the latest release of
 [pifacecommon](https://github.com/piface/pifacecommon/releases) and reboot.
