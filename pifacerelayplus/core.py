@@ -59,6 +59,7 @@ class MotorDC(object):
         self.brake()
 
     def _check_time(self):
+        global _motor_last_control_time
         if time.time() > _motor_last_control_time + MOTOR_CONTROL_WINDOW:
             # past the window - we can control the motor
             _motor_last_control_time = time.time()
