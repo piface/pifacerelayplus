@@ -23,6 +23,11 @@ RELAY, MOTOR_DC, MOTOR_STEPPER = range(3)
 DEFAULT_GPIOA_CONF = {'value': 0, 'direction': 0, 'pullup': 0},
 DEFAULT_GPIOB_CONF = {'value': 0, 'direction': 0xff, 'pullup': 0xff}
 
+# You cannot make two motor controls within this time window (feel free
+# to adjust this for your power supply)
+MOTOR_CONTROL_WINDOW = 0.150 # 150ms
+_motor_last_control_time = 0
+
 
 class NoPiFaceRelayPlusDetectedError(Exception):
     pass
@@ -37,6 +42,14 @@ class MotorForwardReverseError(Exception):
             "`brake` or `coast` first.".format(state_into, state_from))
 
 
+class MotorTooSoonError(Exception):
+    """This exception is thrown when more than one motor is turned on
+    within a small time window as it will draw too much current and
+    reset the Raspberry Pi.
+    """
+    pass
+
+
 class MotorDC(object):
     """A motor driver attached to a PiFace Relay Plus. Uses DRV8835."""
 
@@ -45,8 +58,16 @@ class MotorDC(object):
         self.pin2 = pin2
         self.brake()
 
+    def _check_time(self):
+        if time.time() > _motor_last_control_time + MOTOR_CONTROL_WINDOW:
+            # past the window - we can control the motor
+            _motor_last_control_time = time.time()
+        else:
+            raise MotorTooSoonError()
+
     def coast(self):
         """Sets the motor so that it is coasting."""
+        self._check_time()
         self.pin1.value = MOTOR_DC_COAST_BITS[0]
         self.pin2.value = MOTOR_DC_COAST_BITS[1]
         self._current_state = 'coast'
@@ -56,6 +77,7 @@ class MotorDC(object):
         if self._current_state == 'forward':
             raise MotorForwardReverseError('reverse', self._current_state)
         else:
+            self._check_time()
             self.pin1.value = MOTOR_DC_REVERSE_BITS[0]
             self.pin2.value = MOTOR_DC_REVERSE_BITS[1]
             self._current_state = 'reverse'
@@ -65,12 +87,14 @@ class MotorDC(object):
         if self._current_state == 'reverse':
             raise MotorForwardReverseError('forward', self._current_state)
         else:
+            self._check_time()
             self.pin1.value = MOTOR_DC_FORWARD_BITS[0]
             self.pin2.value = MOTOR_DC_FORWARD_BITS[1]
             self._current_state = 'forward'
 
     def brake(self):
         """Stop the motor."""
+        self._check_time()
         self.pin1.value = MOTOR_DC_BRAKE_BITS[0]
         self.pin2.value = MOTOR_DC_BRAKE_BITS[1]
         self._current_state = 'brake'
