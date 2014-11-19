@@ -56,7 +56,7 @@ class MotorDC(object):
     def __init__(self, pin1, pin2):
         self.pin1 = pin1
         self.pin2 = pin2
-        self.brake()
+        self._current_state = 'brake'
 
     def _check_time(self):
         global _motor_last_control_time
