@@ -17,7 +17,6 @@ MOTOR_DC_BRAKE_BITS = (0, 0)  # L, L
 
 # Plus boards
 # Motor board IC datasheet: http://www.ti.com/lit/ds/symlink/drv8835.pdf
-# RELAY, MOTOR_DC, MOTOR_STEPPER, DIGITAL = range(4)
 RELAY, MOTOR_DC, MOTOR_STEPPER = range(3)
 
 DEFAULT_GPIOA_CONF = {'value': 0, 'direction': 0, 'pullup': 0},
@@ -213,13 +212,11 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
             gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
             gpiob_conf = {'value': 0, 'direction': 0, 'pullup': 0}
 
-        elif plus_board == MOTOR_STEPPER:
-            self.motors = [MotorStepper(i, self) for i in range(2)]
-            gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
-            gpiob_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+        # elif plus_board == MOTOR_STEPPER:
+        #     self.motors = [MotorStepper(i, self) for i in range(2)]
+        #     gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+        #     gpiob_conf = {'value': 0, 'direction': 0, 'pullup': 0}
 
-        # elif plus_board == DIGITAL:
-        #     pass
         else:
             gpioa_conf = DEFAULT_GPIOA_CONF
             gpiob_conf = DEFAULT_GPIOB_CONF

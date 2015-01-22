@@ -2,13 +2,15 @@ pifacerelayplus
 ===============
 The PiFace Relay Plus module.
 
+
 Documentation
 =============
-[http://pifacedigitalio.readthedocs.org/](http://pifacedigitalio.readthedocs.org/)
+[http://pifacerelayplus.readthedocs.org/](http://pifacerelayplus.readthedocs.org/)
 
 You can also find the documentation and some examples installed at:
 
     /usr/share/doc/python3-pifacerelayplus/
+
 
 Install
 =======
