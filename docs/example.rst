@@ -15,28 +15,24 @@ Basic usage
     >>> pfr.relays[1].turn_on()  # turn on/set high the second Relay/LED
     >>> pfr.relays[2].value = 1  # turn on/set high the third relay
     >>> pfr.relays[6].toggle()   # toggle seventh LED
-    >>> pfr.input_pins[3].value  # check the logical status of switch 3
-    0
 
-    >>> pfr.relays.value = 0xAA  # set all the relays to be 0b10101010
-    >>> pfr.relays.all_off()
+    >>> pfr.relay_port.value = 0xAA  # set all the relays to be 0b10101010
+    >>> pfr.relay_port.all_off()
 
     >>> pfr.motors[0].forward()  # drive the motor forward
     >>> pfr.motors[0].coast()  # stop driving the motor and let it coast
     >>> pfr.motors[0].reverse()  # drive the motor in reverse
     >>> pfr.motors[0].brake()  # force the motor to stop
 
-    >>> pfr.input_pins.value     # get the logical value of all the input pins
+    >>> pfr.x_port.value  # get the value of all of the X-port pins
+    0
+    >>> pfr.x_pins[0].value  # get the value of one X-port pin
     0
 
-    >>> bin(pfr.input_port.value)  # fourth switch pressed (logical input port)
+    >>> pfr.y_pins[0].value  # get the value of one Y-port pin (Relay Extra)
+
+    >>> bin(pfr.x_port.value)  # fourth pin activated
     '0b1000'
-
-    >>> bin(pfr.gpiob.value)  # fourth switch pressed (physical input port)
-    '0b11110111'
-
-.. note: Values are active low on GPIO Port B. This is hidden by the software
-   libraries unless you inspect the GPIOB register.
 
 
 Interrupts
