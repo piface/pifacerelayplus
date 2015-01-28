@@ -7,7 +7,6 @@ import time
 DEFAULT_SPI_BUS = 0
 DEFAULT_SPI_CHIP_SELECT = 0
 
-
 # Datasheet says coast is 0, 0 and bake is 1, 1. I think it's wrong.
 # (pin_num1, pin_num2)
 MOTOR_DC_COAST_BITS = (1, 1)  # Z, Z
@@ -19,7 +18,7 @@ MOTOR_DC_BRAKE_BITS = (0, 0)  # L, L
 # Motor board IC datasheet: http://www.ti.com/lit/ds/symlink/drv8835.pdf
 RELAY, MOTOR_DC, MOTOR_STEPPER = range(3)
 
-DEFAULT_GPIOA_CONF = {'value': 0, 'direction': 0, 'pullup': 0},
+DEFAULT_GPIOA_CONF = {'value': 0, 'direction': 0, 'pullup': 0}
 DEFAULT_GPIOB_CONF = {'value': 0, 'direction': 0xff, 'pullup': 0xff}
 
 # You cannot make two motor controls within this time window (feel free
