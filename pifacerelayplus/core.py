@@ -16,7 +16,8 @@ MOTOR_DC_BRAKE_BITS = (0, 0)  # L, L
 
 # Plus boards
 # Motor board IC datasheet: http://www.ti.com/lit/ds/symlink/drv8835.pdf
-RELAY, MOTOR_DC, MOTOR_STEPPER = range(3)
+# RELAY, MOTOR_DC, MOTOR_STEPPER = range(3)
+RELAY, MOTOR_DC, BUTTON = range(3)
 
 DEFAULT_GPIOA_CONF = {'value': 0, 'direction': 0, 'pullup': 0}
 DEFAULT_GPIOB_CONF = {'value': 0, 'direction': 0xff, 'pullup': 0xff}
@@ -174,7 +175,11 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
                                                       pcmcp.GPIOB,
                                                       self)
 
-        self.relay_port = pcmcp.MCP23S17Register(pcmcp.GPIOA, self)
+        # self.relay_port = pcmcp.MCP23S17Register(pcmcp.GPIOA, self)
+        self.relay_port = pcmcp.MCP23S17RegisterNibble(pcmcp.LOWER_NIBBLE,
+                                                       pcmcp.GPIOA,
+                                                       self)
+
 
         # Relays are always lower nibble of GPIOA, order is reversed
         self.relays = list(reversed([pcmcp.MCP23S17RegisterBit(i,
@@ -215,6 +220,22 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         #     self.motors = [MotorStepper(i, self) for i in range(2)]
         #     gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
         #     gpiob_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+
+        elif plus_board == BUTTON:
+            # append 4 LEDs
+            self.leds = [pcmcp.MCP23S17RegisterBit(i, pcmcp.GPIOA, self)
+                         for i in range(4, 8)]
+            self.led_port = pcmcp.MCP23S17RegisterNibble(pcmcp.UPPER_NIBBLE,
+                                                         pcmcp.GPIOA,
+                                                         self)
+            # add the buttons
+            self.buttons = [pcmcp.MCP23S17RegisterBitNeg(i, pcmcp.GPIOB, self)
+                            for i in range(4)]
+            self.button_port = pcmcp.MCP23S17RegisterNibbleNeg(pcmcp.LOWER_NIBBLE,
+                                                               pcmcp.GPIOB,
+                                                               self)
+            gpioa_conf = {'value': 0, 'direction': 0, 'pullup': 0}
+            gpiob_conf = {'value': 0, 'direction': 0xff, 'pullup': 0xff}
 
         else:
             gpioa_conf = DEFAULT_GPIOA_CONF
