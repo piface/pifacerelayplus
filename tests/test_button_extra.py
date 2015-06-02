@@ -24,8 +24,9 @@ class TestButtonExtraBoard(unittest.TestCase):
         #     self.pfrp.leds[i].turn_on()
         #     self.assertEqual(self.pfrp.leds[i].value, 1)
 
-        self.pfrp.leds[0].turn_on()
-        self.pfrp.relays[0].turn_on()
+        for i in range(4):
+            self.pfrp.leds[i].turn_on()
+            self.pfrp.relays[i].turn_on()
         # self.pfrp.leds[1].turn_on()
         # self.pfrp.leds[2].turn_on()
         # self.pfrp.leds[3].turn_on()
