@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+v0.2.2
+------
+- Added simplewebcontrol.
+
 v0.2.1
 ------
 - Fixed bug with default GPIO configs for when there is no 'Extra Board'.
