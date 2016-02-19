@@ -51,6 +51,12 @@ class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
         # reply with JSON
         self.send_response(200)
         self.send_header("Content-type", "application/json")
+        # for access from other sources
+        self.send_header("Access-Control-Allow-Origin", "*");
+        self.send_header("Access-Control-Expose-Headers",
+                         "Access-Control-Allow-Origin");
+        self.send_header("Access-Control-Allow-Headers",
+                         "Origin, X-Requested-With, Content-Type, Accept");
         self.end_headers()
         self.wfile.write(bytes(JSON_FORMAT.format(
             x_port=x_port_value,
