@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+v0.2.3
+------
+- Added MANIFEST.in with readme and changelog and added setup.py for PyPI
+
 v0.2.2
 ------
 - Added simplewebcontrol.
