@@ -28,24 +28,23 @@ import pifacerelayplus
 
 
 DEFAULT_PORT = 8000
-RELAY_PORT_SET_STRING = "relay_port"
+RELAY_PORT_SET_STRING = "relay_port_b{board_index}"
 GET_IP_CMD = "hostname -I"
 
 
 class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
     """Handles PiFace Relay Plus web control requests"""
+
+    # List of PiFace Relay Plus boards
+    pfrps = []
+
     def do_GET(self):
-        x_port_value = self.pfrp.x_port.value
-        relay_port_value = self.pfrp.relay_port.value
-
-        # parse the query string
-        qs = urllib.parse.urlparse(self.path).query
-        query_components = urllib.parse.parse_qs(qs)
-
-        # set the output
-        if RELAY_PORT_SET_STRING in query_components:
-            new_relay_port_value = query_components[RELAY_PORT_SET_STRING][0]
-            relay_port_value = self.set_relay_port(new_relay_port_value)
+        statuses = []
+        for i, board in enumerate(self.pfrps):
+            # get the board status
+            status = self.get_status(board)
+            self.update_relay_port(board, i, status)
+            statuses.append(status)
 
         # reply with JSON
         self.send_response(200)
@@ -57,20 +56,32 @@ class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers",
                          "Origin, X-Requested-With, Content-Type, Accept");
         self.end_headers()
-        self.wfile.write(
-            bytes(json.dumps({"x_port": x_port_value,
-                              "relay_port": relay_port_value}), 'utf-8'))
+        self.wfile.write(bytes(json.dumps(statuses), 'utf-8'))
 
-    def set_relay_port(self, new_value):
+    def get_status(self, board):
+        return {"x_port": board.x_port.value,
+                "relay_port": board.relay_port.value}
+
+    def update_relay_port(self, board, index, status):
+        # parse the query string
+        qs = urllib.parse.urlparse(self.path).query
+        query_components = urllib.parse.parse_qs(qs)
+        # set the output
+        relay_port_set_string = RELAY_PORT_SET_STRING.format(board_index=index)
+        if relay_port_set_string in query_components:
+            rp_val = query_components[relay_port_set_string][0]
+            status['relay_port'] = self.set_relay_port(board, rp_val)
+
+    def set_relay_port(self, board, new_value):
         """Sets the relay port value to new_value."""
-        print("Setting relay port port to {}.".format(new_value))
-        port_value = self.pfrp.relay_port.value
+        # print("Setting relay port value to {}.".format(new_value))
+        port_value = board.relay_port.value
         try:
             port_value = int(new_value)  # dec
         except ValueError:
             port_value = int(new_value, 16)  # hex
         finally:
-            self.pfrp.relay_port.value = port_value
+            board.relay_port.value = port_value
             return port_value  # returns actual port value
 
 
@@ -89,18 +100,30 @@ if __name__ == "__main__":
                         dest='init_board',
                         action='store_false',
                         help="Do not initialise the board.")
+    parser.add_argument('-n', '--num-boards',
+                        help='Number of PiFace Relay Plus boards attached.',
+                        default=1,
+                        type=int)
     args = parser.parse_args()
 
-    # set up PiFace Relay Plus with 'relay' plus-board
-    PiFaceRelayPlusWebHandler.pfrp = pifacerelayplus.PiFaceRelayPlus(
-        plus_board=pifacerelayplus.RELAY,
-        init_board=args.init_board)
+    # set up a list of PiFace Relay Plus boards (with 'relay' plus-board)
+    PiFaceRelayPlusWebHandler.pfrps =[
+        pifacerelayplus.PiFaceRelayPlus(plus_board=pifacerelayplus.RELAY,
+                                        init_board=args.init_board,
+                                        hardware_addr=hardware_addr)
+        for hardware_addr in range(args.num_boards)]
 
-    print("Starting simple PiFace web control at:\n\n"
-          "\thttp://{addr}:{port}\n\n"
-          "Change the relay_port with:\n\n"
-          "\thttp://{addr}:{port}?relay_port=0xAA\n"
-          .format(addr=get_my_ip(), port=args.port))
+    print("""Starting simple PiFace web control at:
+
+    http://{addr}:{port}
+
+Change the relay_port with:
+
+    http://{addr}:{port}?{relay_port_set_string}=0xAA
+
+""".format(addr=get_my_ip(),
+           port=args.port,
+           relay_port_set_string=RELAY_PORT_SET_STRING.format(board_index=0)))
 
     # run the server
     server_address = ('', int(args.port))

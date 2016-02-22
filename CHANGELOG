@@ -1,11 +1,16 @@
 Change Log
 ==========
 
+v0.2.5
+------
+- simplewebcontrol now supports multiple boards.
+
 v0.2.4
 ------
 - Fixed bug when using the 'Relay' Plus-Board where the 'relay_port'
   property would not be set correctly.
-- Fixed simplewebcontrol to return proper json as well
+- Fixed simplewebcontrol to return proper JSON.
+
 v0.2.3
 ------
 - Added MANIFEST.in with readme and changelog and added setup.py for PyPI

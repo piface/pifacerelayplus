@@ -21,7 +21,7 @@ local network::
 It will return a `JSON object <http://www.json.org/>`_ describing the current
 state of PiFace Relay Plus::
 
-    {'relay_port': 0, 'x_port': 0}
+    {"relay_port": 0, "x_port": 0}
 
 
 Controlling Relays
