@@ -1,6 +1,11 @@
 Change Log
 ==========
 
+v0.2.6
+------
+- simplewebcontrol now supports and/or masks.
+- Changed the relay port query string syntax.
+
 v0.2.5
 ------
 - simplewebcontrol now supports multiple boards.

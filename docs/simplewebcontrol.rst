@@ -26,9 +26,9 @@ state of PiFace Relay Plus::
 
 Controlling Relays
 ------------------
-You can set the relay port using the URL::
+You can set the relay port (on board 0) using the URL::
 
-    http://192.168.1.61:8000/?relay_port=0xaa
+    http://192.168.1.61:8000/?b0_relay_port=0xaa
 
 
 Changing Port
@@ -44,3 +44,24 @@ The web controller automatically initialises the board. If this does not suit
 your application then you can try the `no_init_board` flag::
 
     $ python3 /usr/share/doc/python3-pifacedigitalio/examples/simplewebcontrol.py --no_init_board
+
+
+Multiple Boards
+---------------
+You can specify multiple boards with the `num-boards` flag::
+
+    $ python3 /usr/share/doc/python3-pifacedigitalio/examples/simplewebcontrol.py --num-boards=3
+
+Control them like so::
+
+    http://192.168.1.61:8000/?b0_relay_port=0xaa&b1_relay_port=0xaa&b2_relay_port=0xaa
+
+
+Masks
+-----
+Instead of setting the relay port values you can send in bit-masks. This can
+be useful if you only want to set individual relays without having to
+read/write::
+
+    http://192.168.1.61:8000/?b0_relay_port__and=0x0f
+    http://192.168.1.61:8000/?b0_relay_port__or=0x11

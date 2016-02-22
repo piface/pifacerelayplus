@@ -28,7 +28,9 @@ import pifacerelayplus
 
 
 DEFAULT_PORT = 8000
-RELAY_PORT_SET_STRING = "relay_port_b{board_index}"
+RELAY_PORT_SET = "b{board_index}_relay_port"
+RELAY_PORT_AND = "b{board_index}_relay_port__and"
+RELAY_PORT_OR = "b{board_index}_relay_port__or"
 GET_IP_CMD = "hostname -I"
 
 
@@ -65,24 +67,37 @@ class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
     def update_relay_port(self, board, index, status):
         # parse the query string
         qs = urllib.parse.urlparse(self.path).query
-        query_components = urllib.parse.parse_qs(qs)
+        qcomponents = urllib.parse.parse_qs(qs)
         # set the output
-        relay_port_set_string = RELAY_PORT_SET_STRING.format(board_index=index)
-        if relay_port_set_string in query_components:
-            rp_val = query_components[relay_port_set_string][0]
-            status['relay_port'] = self.set_relay_port(board, rp_val)
+        key_set = RELAY_PORT_SET.format(board_index=index)
+        key_and = RELAY_PORT_AND.format(board_index=index)
+        key_or = RELAY_PORT_OR.format(board_index=index)
+        # SET
+        if key_set in qcomponents:
+            print('set')
+            value = self.parse_query_value(qcomponents[key_set][0])
+            board.relay_port.value = value
+            status['relay_port'] = value
+        # AND
+        elif key_and in qcomponents:
+            print('and')
+            mask = self.parse_query_value(qcomponents[key_and][0])
+            value = board.relay_port.value & mask
+            board.relay_port.value = value
+            status['relay_port'] = value
+        # OR
+        elif key_or in qcomponents:
+            print('or')
+            mask = self.parse_query_value(qcomponents[key_or][0])
+            value = board.relay_port.value | mask
+            board.relay_port.value = value
+            status['relay_port'] = value
 
-    def set_relay_port(self, board, new_value):
-        """Sets the relay port value to new_value."""
-        # print("Setting relay port value to {}.".format(new_value))
-        port_value = board.relay_port.value
+    def parse_query_value(self, query_value):
         try:
-            port_value = int(new_value)  # dec
+            return int(query_value)  # dec
         except ValueError:
-            port_value = int(new_value, 16)  # hex
-        finally:
-            board.relay_port.value = port_value
-            return port_value  # returns actual port value
+            return int(query_value, 16)  # hex
 
 
 def get_my_ip():
@@ -123,7 +138,7 @@ Change the relay_port with:
 
 """.format(addr=get_my_ip(),
            port=args.port,
-           relay_port_set_string=RELAY_PORT_SET_STRING.format(board_index=0)))
+           relay_port_set_string=RELAY_PORT_SET.format(board_index=0)))
 
     # run the server
     server_address = ('', int(args.port))
