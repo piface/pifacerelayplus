@@ -19,7 +19,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
-import sys
+import json
 import argparse
 import subprocess
 import http.server
@@ -58,10 +58,9 @@ class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
         self.send_header("Access-Control-Allow-Headers",
                          "Origin, X-Requested-With, Content-Type, Accept");
         self.end_headers()
-        self.wfile.write(bytes(JSON_FORMAT.format(
-            x_port=x_port_value,
-            relay_port=relay_port_value,
-        ), 'UTF-8'))
+        self.wfile.write(
+            bytes(json.dumps({"x_port": x_port_value,
+                              "relay_port": relay_port_value}), 'utf-8'))
 
     def set_relay_port(self, new_value):
         """Sets the relay port value to new_value."""
@@ -93,8 +92,9 @@ if __name__ == "__main__":
                         help="Do not initialise the board.")
     args = parser.parse_args()
 
-    # set up PiFace Relay Plus
+    # set up PiFace Relay Plus with 'relay' plus-board
     PiFaceRelayPlusWebHandler.pfrp = pifacerelayplus.PiFaceRelayPlus(
+        plus_board=pifacerelayplus.RELAY,
         init_board=args.init_board)
 
     print("Starting simple PiFace web control at:\n\n"

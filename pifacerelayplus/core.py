@@ -191,6 +191,9 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
             # append 4 relays
             self.relays.extend([pcmcp.MCP23S17RegisterBit(i, pcmcp.GPIOA, self)
                                 for i in range(4, 8)])
+
+            self.relay_port = pcmcp.MCP23S17Register(pcmcp.GPIOA, self)
+
             # add the y port
             self.y_pins = [pcmcp.MCP23S17RegisterBitNeg(i, pcmcp.GPIOB, self)
                            for i in range(4)]
