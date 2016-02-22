@@ -27,7 +27,6 @@ import urllib.parse
 import pifacerelayplus
 
 
-JSON_FORMAT = "{{'relay_port': {relay_port}, 'x_port': {x_port}}}"
 DEFAULT_PORT = 8000
 RELAY_PORT_SET_STRING = "relay_port"
 GET_IP_CMD = "hostname -I"
