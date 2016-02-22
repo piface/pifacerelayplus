@@ -74,20 +74,17 @@ class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
         key_or = RELAY_PORT_OR.format(board_index=index)
         # SET
         if key_set in qcomponents:
-            print('set')
             value = self.parse_query_value(qcomponents[key_set][0])
             board.relay_port.value = value
             status['relay_port'] = value
         # AND
         elif key_and in qcomponents:
-            print('and')
             mask = self.parse_query_value(qcomponents[key_and][0])
             value = board.relay_port.value & mask
             board.relay_port.value = value
             status['relay_port'] = value
         # OR
         elif key_or in qcomponents:
-            print('or')
             mask = self.parse_query_value(qcomponents[key_or][0])
             value = board.relay_port.value | mask
             board.relay_port.value = value
