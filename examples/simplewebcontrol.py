@@ -24,7 +24,7 @@ import argparse
 import subprocess
 import http.server
 import urllib.parse
-import pifacerelayplus
+from pifacerelayplus import PiFaceRelayPlus, RELAY
 
 
 DEFAULT_PORT = 8000
@@ -99,8 +99,9 @@ class PiFaceRelayPlusWebHandler(http.server.BaseHTTPRequestHandler):
 
 def get_my_ip():
     """Returns this computers IP address as a string."""
-    ip = subprocess.check_output(GET_IP_CMD, shell=True).decode('utf-8')[:-1]
-    return ip.strip()
+    output = subprocess.check_output(GET_IP_CMD, shell=True).decode('utf-8')
+    ips = output.split(' ')
+    return ips[0].strip()
 
 
 if __name__ == "__main__":
@@ -119,13 +120,18 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # set up a list of PiFace Relay Plus boards (with 'relay' plus-board)
-    PiFaceRelayPlusWebHandler.pfrps =[
-        pifacerelayplus.PiFaceRelayPlus(plus_board=pifacerelayplus.RELAY,
-                                        init_board=args.init_board,
-                                        hardware_addr=hardware_addr)
-        for hardware_addr in range(args.num_boards)]
+    PiFaceRelayPlusWebHandler.pfrps =[]
+    for hardware_addr in range(args.num_boards):
+        try:
+            pfrp = PiFaceRelayPlus(plus_board=RELAY,
+                                   init_board=args.init_board,
+                                   hardware_addr=hardware_addr)
+        except:
+            pass
+        else:
+            PiFaceRelayPlusWebHandler.pfrps.append(pfrp)
 
-    print("""Starting simple PiFace web control at:
+    print("""Starting simple PiFace web control ({n}x PiFace Relay Plus) at:
 
     http://{addr}:{port}
 
@@ -133,7 +139,8 @@ Change the relay_port with:
 
     http://{addr}:{port}?{relay_port_set_string}=0xAA
 
-""".format(addr=get_my_ip(),
+""".format(n=len(PiFaceRelayPlusWebHandler.pfrps),
+           addr=get_my_ip(),
            port=args.port,
            relay_port_set_string=RELAY_PORT_SET.format(board_index=0)))
 

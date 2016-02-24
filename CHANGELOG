@@ -4,6 +4,8 @@ Change Log
 v0.2.7
 ------
 - Removed unecessary __del__ magic method.
+- Updated simplewebcontrol so that it doesn't fall over if you don't have
+  all the boards specified with the 'num-boards' arg.
 
 v0.2.6
 ------
