@@ -247,10 +247,6 @@ class PiFaceRelayPlus(pifacecommon.mcp23s17.MCP23S17,
         if init_board:
             self.init_board(gpioa_conf, gpiob_conf)
 
-    def __del__(self):
-        self.disable_interrupts()
-        super(PiFaceRelayPlus, self).__del__()
-
     def enable_interrupts(self):
         """Enables interrupts."""
         self.gpintenb.value = 0xF0

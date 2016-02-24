@@ -1,6 +1,10 @@
 Change Log
 ==========
 
+v0.2.7
+------
+- Removed unecessary __del__ magic method.
+
 v0.2.6
 ------
 - simplewebcontrol now supports and/or masks.
